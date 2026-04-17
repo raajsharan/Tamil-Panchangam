@@ -1,0 +1,228 @@
+// Tamil Calendar & Panchangam - Prisma Schema
+// PostgreSQL database schema for calendar data, admin users, and system logs
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================
+// Calendar - Daily Panchangam Data
+// ===========================================
+model Calendar {
+  id              String   @id @default(cuid())
+  date            DateTime @db.Date @unique
+
+  // Tamil Date Information
+  tamilYear       Int
+  tamilYearName   String
+  tamilMonth      String
+  tamilDay        Int
+
+  // Tithi (Lunar Day)
+  tithiName       String
+  tithiNumber     Int
+  tithiPaksha     String   // "Shukla" or "Krishna"
+  tithiStart      DateTime
+  tithiEnd        DateTime
+
+  // Nakshatram (Lunar Mansion)
+  nakshatramName  String
+  nakshatramLord  String
+  nakshatramPada  Int?
+
+  // Yoga
+  yogaName        String?
+  yogaNumber      Int?
+
+  // Karana
+  karanaName      String?
+
+  // Sunrise/Sunset and Muhurtas
+  sunrise         DateTime
+  sunset          DateTime
+  moonrise        DateTime?
+  moonset         DateTime?
+
+  // Rahu Kalam
+  rahuKalamStart  DateTime
+  rahuKalamEnd    DateTime
+
+  // Yamagandam
+  yamagandamStart DateTime
+  yamagandamEnd   DateTime
+
+  // Kuligai
+  kuligaiStart    DateTime
+  kuligaiEnd      DateTime
+
+  // Abhijit Muhurta
+  abhijitStart    DateTime?
+  abhijitEnd      DateTime?
+
+  // Brahma Muhurta
+  brahmaMuhurtaStart DateTime?
+  brahmaMuhurtaEnd   DateTime?
+
+  // Special Days (stored as JSON array)
+  specialDays     String   @default("[]")
+
+  // Flags for self-healing system
+  isManualOverride Boolean @default(false)
+  isVerified      Boolean @default(true)
+  hasError        Boolean @default(false)
+  errorMessage    String?
+
+  // Data source tracking
+  source          String   @default("calculated") // "calculated", "scraped", "manual"
+  scrapedFrom     String?  // Source website if scraped
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  auditLogs       AuditLog[]
+
+  // Indexes for common queries
+  @@index([tamilYear])
+  @@index([tamilMonth])
+  @@index([tithiNumber])
+  @@index([nakshatramName])
+  @@index([isManualOverride])
+  @@index([hasError])
+}
+
+// ===========================================
+// Admin - User Accounts
+// ===========================================
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String   // bcrypt hashed
+  role      String   @default("editor") // "super-admin" or "editor"
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  auditLogs   AuditLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+// ===========================================
+// AuditLog - All Changes Tracking
+// ===========================================
+model AuditLog {
+  id        String   @id @default(cuid())
+  type      String   // "info", "warning", "error", "scrape", "system", "auth"
+  message   String
+  metadata  Json?
+
+  // Optional relation to calendar entry
+  calendarId String?
+  calendar   Calendar? @relation(fields: [calendarId], references: [id])
+
+  // Optional relation to admin user
+  adminId    String?
+  admin      Admin? @relation(fields: [adminId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([createdAt])
+  @@index([calendarId])
+  @@index([adminId])
+}
+
+// ===========================================
+// ScraperStatus - Health Monitoring
+// ===========================================
+model ScraperStatus {
+  id               String   @id @default(cuid())
+  source           String   @unique // "drikpanchang", "prokerala", "goldenchennai", "dinamalar"
+  lastRun          DateTime
+  status           String   // "success", "failed", "partial"
+  recordsProcessed Int      @default(0)
+  errors           String   @default("[]") // JSON array of error messages
+  nextRun          DateTime
+  avgResponseTime  Float?   // Average response time in ms
+  successRate      Float?   // Success rate percentage
+  updatedAt        DateTime @updatedAt
+
+  @@index([status])
+  @@index([lastRun])
+}
+
+// ===========================================
+// SpecialDay - Festival Definitions
+// ===========================================
+model SpecialDay {
+  id          String   @id @default(cuid())
+  name        String
+  nameTamil   String?
+  nameEnglish String?
+  type        String   // "major", "minor", "regional", "national"
+  category    String?  // "festival", "vratam", "puja", "holiday"
+  date        DateTime @db.Date
+  description String?
+  descriptionTamil String?
+  isActive    Boolean  @default(true)
+  isRecurring Boolean  @default(true) // True for annual festivals
+
+  // Tamil calendar reference
+  tamilMonth  String?
+  tamilDay    Int?
+  tithi       String?
+  nakshatram  String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+  @@index([type])
+  @@index([isActive])
+  @@index([tamilMonth])
+}
+
+// ===========================================
+// TelegramSubscriber - Bot Users
+// ===========================================
+model TelegramSubscriber {
+  id              String   @id @default(cuid())
+  telegramId      String   @unique
+  username        String?
+  firstName       String?
+  lastName        String?
+  language        String   @default("en") // "en" or "ta"
+  subscribed      Boolean  @default(true)
+  notificationsEnabled Boolean @default(true)
+  createdAt       DateTime @default(now())
+  lastInteraction DateTime @default(now())
+  preferences     Json?    // User preferences like favorite festivals
+
+  @@index([telegramId])
+  @@index([subscribed])
+}
+
+// ===========================================
+// SystemSetting - Application Configuration
+// ===========================================
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  type      String   @default("string") // "string", "number", "boolean", "json"
+  description String?
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+}

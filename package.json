@@ -1,0 +1,40 @@
+{
+  "name": "tamil-calendar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-ready Tamil Calendar & Panchangam Web Application",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run dev --workspace=@tamil-calendar/api",
+    "dev:web": "npm run dev --workspace=@tamil-calendar/web",
+    "dev:bot": "npm run dev --workspace=@tamil-calendar/bot",
+    "build": "npm run build --workspace=@tamil-calendar/api && npm run build --workspace=@tamil-calendar/web",
+    "start": "npm run start --workspace=@tamil-calendar/api",
+    "install:all": "pnpm install && pnpm prisma generate",
+    "db:migrate": "pnpm prisma migrate dev",
+    "db:push": "pnpm prisma db push",
+    "db:seed": "pnpm prisma db seed",
+    "lint": "eslint apps packages --ext .ts,.tsx",
+    "format": "prettier --write apps packages"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prettier": "^3.2.5",
+    "typescript": "^5.4.3"
+  },
+  "workspaces": [
+    "apps/*",
+    "apps/web",
+    "packages/*"
+  ],
+  "packageManager": "pnpm@8.15.5",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "dependencies": {
+    "next": "14.1.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}
